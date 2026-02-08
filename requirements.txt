@@ -1,0 +1,4 @@
+faster-whisper>=1.1.0
+sounddevice>=0.4.6
+numpy
+py2app>=0.28
