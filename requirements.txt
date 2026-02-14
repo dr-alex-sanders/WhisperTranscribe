@@ -1,4 +1,8 @@
 faster-whisper>=1.1.0
+mlx-whisper
 sounddevice>=0.4.6
 numpy
 py2app>=0.28
+resemblyzer>=0.1.4
+httpx
+av

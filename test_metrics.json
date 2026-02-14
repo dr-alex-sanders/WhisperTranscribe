@@ -1,0 +1,234 @@
+{
+  "metrics": {
+    "input_device_count": 2,
+    "wireless_go_ii_detected": true,
+    "coreaudio_query_ms": 105.1,
+    "monitor_callbacks_2s": 19,
+    "monitor_rms_mean": 4.699999809265137,
+    "monitor_rms_max": 5.300000190734863,
+    "monitor_latency_ms": 116.1,
+    "wav_read_ms": 1.6,
+    "wav_channels": 2,
+    "wav_samplerate": 48000,
+    "wav_duration_s": 44.5,
+    "wav_filesize_kb": 8343.8,
+    "wav_write_ms": 0.2,
+    "wav_read_roundtrip_ms": 0.1,
+    "recordings_count": 31,
+    "recordings_list_ms": 0.4,
+    "resample_48_to_16_ms": 2.8,
+    "resample_input_samples": 2136000,
+    "resample_output_samples": 712000,
+    "stereo_full_correlation": 0.0024999999441206455,
+    "stereo_window_corr_mean": -0.009399999864399433,
+    "stereo_window_corr_std": 0.16009999811649323,
+    "stereo_divergent_windows": 44,
+    "stereo_correlated_windows": 0,
+    "correlation_analysis_ms": 1.2,
+    "mono_mix_ms": 4.6,
+    "mono_peak": 16386,
+    "mono_rms": 360.20001220703125,
+    "model_count": 18,
+    "default_model": "mlx-whisper small",
+    "mlx_warmup_ms": 1128.2,
+    "transcribe_5s_ms": 281.9,
+    "transcribe_5s_rtf": 0.056,
+    "transcribe_5s_segments": 1,
+    "transcribe_5s_chars": 23,
+    "transcribe_10s_ms": 362.6,
+    "transcribe_10s_rtf": 0.036,
+    "transcribe_full_ms": 1016.6,
+    "transcribe_full_rtf": 0.023,
+    "transcribe_full_segments": 21,
+    "transcribe_full_chars": 583,
+    "transcribe_full_duration_s": 44.5,
+    "transcribe_consistency_identical": true,
+    "transcribe_time_mean_ms": 385.3,
+    "transcribe_time_std_ms": 3.3,
+    "transcribe_time_min_ms": 381.4,
+    "transcribe_time_max_ms": 389.4,
+    "transcribe_consistency_jaccard": 1.0,
+    "diarization_accuracy": 1.0,
+    "diarization_correct": 7,
+    "diarization_total": 7,
+    "diarization_analysis_ms": 2.5,
+    "diarization_full_segments": 21,
+    "diarization_full_speaker1": 9,
+    "diarization_full_speaker2": 12,
+    "diarization_full_ms": 4.7,
+    "diarization_deterministic": true,
+    "e2e_read_ms": 1.2,
+    "e2e_resample_ms": 3.2,
+    "e2e_mix_ms": 2.8,
+    "e2e_transcribe_ms": 1021.2,
+    "e2e_diarize_ms": 6.5,
+    "e2e_format_ms": 0.0,
+    "e2e_total_ms": 1034.9,
+    "e2e_segments": 21,
+    "realtime_chunk_buffer_ms": 0.07,
+    "realtime_transcribe_mean_ms": 372.1,
+    "realtime_transcribe_max_ms": 507.4,
+    "realtime_transcriptions": 5,
+    "peak_memory_mb": 1798.9,
+    "python_version": "3.14.3",
+    "platform": "macOS-15.2-arm64-arm-64bit-Mach-O",
+    "cpu": "arm"
+  },
+  "results": [
+    {
+      "name": "Device enumeration",
+      "category": "device",
+      "status": "PASSED",
+      "time_ms": 1.2,
+      "mem_delta_kb": 16.0
+    },
+    {
+      "name": "CoreAudio query",
+      "category": "device",
+      "status": "PASSED",
+      "time_ms": 105.1,
+      "mem_delta_kb": 32.0
+    },
+    {
+      "name": "Monitor level meter (2s capture)",
+      "category": "device",
+      "status": "PASSED",
+      "time_ms": 2207.1,
+      "mem_delta_kb": 3168.0
+    },
+    {
+      "name": "Read stereo WAV",
+      "category": "file_io",
+      "status": "PASSED",
+      "time_ms": 6.7,
+      "mem_delta_kb": 16832.0
+    },
+    {
+      "name": "Write + read WAV roundtrip",
+      "category": "file_io",
+      "status": "PASSED",
+      "time_ms": 2.0,
+      "mem_delta_kb": 784.0
+    },
+    {
+      "name": "Transcript save/load",
+      "category": "file_io",
+      "status": "PASSED",
+      "time_ms": 0.3,
+      "mem_delta_kb": 0.0
+    },
+    {
+      "name": "Recordings directory listing",
+      "category": "file_io",
+      "status": "PASSED",
+      "time_ms": 1.0,
+      "mem_delta_kb": 0.0
+    },
+    {
+      "name": "Resampling 48kHz \u2192 16kHz",
+      "category": "audio",
+      "status": "PASSED",
+      "time_ms": 3.8,
+      "mem_delta_kb": 12528.0
+    },
+    {
+      "name": "Stereo correlation analysis",
+      "category": "audio",
+      "status": "PASSED",
+      "time_ms": 4.8,
+      "mem_delta_kb": 8400.0
+    },
+    {
+      "name": "Mono mixing",
+      "category": "audio",
+      "status": "PASSED",
+      "time_ms": 7.8,
+      "mem_delta_kb": 4240.0
+    },
+    {
+      "name": "Model manager \u2014 available models",
+      "category": "model",
+      "status": "PASSED",
+      "time_ms": 0.6,
+      "mem_delta_kb": 0.0
+    },
+    {
+      "name": "MLX model load (cold)",
+      "category": "model",
+      "status": "PASSED",
+      "time_ms": 1137.9,
+      "mem_delta_kb": 1626512.0
+    },
+    {
+      "name": "MLX transcription \u2014 5s segment",
+      "category": "transcription",
+      "status": "PASSED",
+      "time_ms": 291.3,
+      "mem_delta_kb": 17904.0
+    },
+    {
+      "name": "MLX transcription \u2014 10s segment",
+      "category": "transcription",
+      "status": "PASSED",
+      "time_ms": 369.8,
+      "mem_delta_kb": 19968.0
+    },
+    {
+      "name": "MLX transcription \u2014 full 44.5s file",
+      "category": "transcription",
+      "status": "PASSED",
+      "time_ms": 1024.2,
+      "mem_delta_kb": 31616.0
+    },
+    {
+      "name": "Transcription consistency (3 runs)",
+      "category": "transcription",
+      "status": "PASSED",
+      "time_ms": 1170.4,
+      "mem_delta_kb": 1952.0
+    },
+    {
+      "name": "Peak-window diarization \u2014 known segments",
+      "category": "diarization",
+      "status": "PASSED",
+      "time_ms": 10.9,
+      "mem_delta_kb": 1488.0
+    },
+    {
+      "name": "Peak-window diarization \u2014 full file",
+      "category": "diarization",
+      "status": "PASSED",
+      "time_ms": 1045.6,
+      "mem_delta_kb": 928.0
+    },
+    {
+      "name": "Diarization determinism (3 runs)",
+      "category": "diarization",
+      "status": "PASSED",
+      "time_ms": 13.0,
+      "mem_delta_kb": 8368.0
+    },
+    {
+      "name": "Full reprocess pipeline (end-to-end)",
+      "category": "e2e",
+      "status": "PASSED",
+      "time_ms": 1035.5,
+      "mem_delta_kb": 2880.0
+    },
+    {
+      "name": "Simulated real-time chunked transcription",
+      "category": "e2e",
+      "status": "PASSED",
+      "time_ms": 1871.3,
+      "mem_delta_kb": 6688.0
+    },
+    {
+      "name": "Memory usage snapshot",
+      "category": "system",
+      "status": "PASSED",
+      "time_ms": 0.2,
+      "mem_delta_kb": 0.0
+    }
+  ],
+  "timestamp": "2026-02-14 22:36:27"
+}

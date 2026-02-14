@@ -7,8 +7,16 @@ DATA_FILES = []
 OPTIONS = {
     "iconfile": "icon.icns",
     "argv_emulation": False,
-    "packages": ["faster_whisper", "sounddevice", "ctranslate2"],
-    "includes": ["model_manager"],
+    "packages": ["faster_whisper", "sounddevice", "ctranslate2", "mlx_whisper", "httpx", "numpy"],
+    "includes": [
+        "model_manager",
+        "deepgram_client",
+        "nvidia_client",
+        "aws_transcribe_client",
+        "openai_client",
+        "speechmatics_client",
+        "medasr_client",
+    ],
     "plist": {
         "CFBundleName": "WhisperTranscribe",
         "CFBundleDisplayName": "WhisperTranscribe",
