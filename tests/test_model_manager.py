@@ -11,22 +11,26 @@ import model_manager
 class TestModelsDict:
     def test_expected_labels(self):
         labels = list(model_manager.MODELS.keys())
-        assert "tiny (75 MB)" in labels
-        assert "base (150 MB)" in labels
-        assert "small (500 MB)" in labels
-        assert "medium (1.5 GB)" in labels
-        assert "large-v3 (3 GB)" in labels
+        assert "mlx-whisper tiny" in labels
+        assert "mlx-whisper small" in labels
+        assert "mlx-whisper medium" in labels
+        assert "mlx-whisper large-v3" in labels
+        assert "mlx-whisper large-v3-turbo" in labels
+        assert "mlx-whisper distil-large-v3" in labels
+        assert "mlx-whisper medical-v1" in labels
 
     def test_expected_model_ids(self):
         values = list(model_manager.MODELS.values())
-        assert "tiny" in values
-        assert "base" in values
-        assert "small" in values
-        assert "medium" in values
-        assert "large-v3" in values
+        assert ("mlx", "mlx-community/whisper-tiny") in values
+        assert ("mlx", "mlx-community/whisper-small-mlx") in values
+        assert ("mlx", "mlx-community/whisper-medium-mlx") in values
+        assert ("mlx", "mlx-community/whisper-large-v3-mlx") in values
+        assert ("mlx", "mlx-community/whisper-large-v3-turbo") in values
+        assert ("mlx", "mlx-community/distil-whisper-large-v3") in values
+        assert ("mlx", "Crystalcareai/Whisper-Medicalv1") in values
 
-    def test_five_models(self):
-        assert len(model_manager.MODELS) == 5
+    def test_seven_models(self):
+        assert len(model_manager.MODELS) == 7
 
     def test_sizes_list_matches_models(self):
         assert model_manager.SIZES == list(model_manager.MODELS.keys())
@@ -34,72 +38,77 @@ class TestModelsDict:
     def test_default_size_exists(self):
         assert model_manager.DEFAULT_SIZE in model_manager.MODELS
 
-    def test_default_size_is_small(self):
-        assert model_manager.DEFAULT_SIZE == "small (500 MB)"
+    def test_default_size_is_mlx_small(self):
+        assert model_manager.DEFAULT_SIZE == "mlx-whisper small"
 
-    def test_model_values_are_strings(self):
+    def test_model_values_are_tuples(self):
         for key, val in model_manager.MODELS.items():
-            assert isinstance(val, str)
-            assert len(val) > 0
+            assert isinstance(val, tuple), f"{key} value is not a tuple"
+            assert len(val) == 2
+            assert val[0] == "mlx"
+            assert len(val[1]) > 0
 
 
-class TestGetModelPath:
-    def test_label_to_model_id(self):
-        assert model_manager.get_model_path("tiny (75 MB)") == "tiny"
-        assert model_manager.get_model_path("base (150 MB)") == "base"
-        assert model_manager.get_model_path("small (500 MB)") == "small"
-        assert model_manager.get_model_path("medium (1.5 GB)") == "medium"
-        assert model_manager.get_model_path("large-v3 (3 GB)") == "large-v3"
+class TestGetModelInfo:
+    def test_label_to_model_info(self):
+        assert model_manager.get_model_info("mlx-whisper tiny") == ("mlx", "mlx-community/whisper-tiny")
+        assert model_manager.get_model_info("mlx-whisper small") == ("mlx", "mlx-community/whisper-small-mlx")
+        assert model_manager.get_model_info("mlx-whisper medium") == ("mlx", "mlx-community/whisper-medium-mlx")
+        assert model_manager.get_model_info("mlx-whisper large-v3") == ("mlx", "mlx-community/whisper-large-v3-mlx")
+        assert model_manager.get_model_info("mlx-whisper large-v3-turbo") == ("mlx", "mlx-community/whisper-large-v3-turbo")
+        assert model_manager.get_model_info("mlx-whisper distil-large-v3") == ("mlx", "mlx-community/distil-whisper-large-v3")
+        assert model_manager.get_model_info("mlx-whisper medical-v1") == ("mlx", "Crystalcareai/Whisper-Medicalv1")
 
-    def test_unknown_label_returns_input(self):
-        assert model_manager.get_model_path("unknown-model") == "unknown-model"
+    def test_unknown_label_returns_mlx_fallback(self):
+        assert model_manager.get_model_info("unknown-model") == ("mlx", "unknown-model")
 
 
 class TestIsModelCached:
     def test_nonexistent_cache_returns_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path / "nonexistent"))
-        assert model_manager.is_model_cached("small (500 MB)") is False
+        assert model_manager.is_model_cached("mlx-whisper small") is False
 
     def test_empty_cache_returns_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        assert model_manager.is_model_cached("small (500 MB)") is False
+        assert model_manager.is_model_cached("mlx-whisper small") is False
 
     def test_model_dir_without_snapshots_returns_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        model_dir = tmp_path / "models--Systran--faster-whisper-small"
+        model_dir = tmp_path / "models--mlx-community--whisper-small-mlx"
         model_dir.mkdir()
-        assert model_manager.is_model_cached("small (500 MB)") is False
+        assert model_manager.is_model_cached("mlx-whisper small") is False
 
     def test_model_dir_with_empty_snapshots_returns_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        model_dir = tmp_path / "models--Systran--faster-whisper-small"
+        model_dir = tmp_path / "models--mlx-community--whisper-small-mlx"
         model_dir.mkdir()
         (model_dir / "snapshots").mkdir()
-        assert model_manager.is_model_cached("small (500 MB)") is False
+        assert model_manager.is_model_cached("mlx-whisper small") is False
 
     def test_model_dir_with_snapshots_returns_true(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        model_dir = tmp_path / "models--Systran--faster-whisper-small"
+        model_dir = tmp_path / "models--mlx-community--whisper-small-mlx"
         model_dir.mkdir()
         snapshots = model_dir / "snapshots"
         snapshots.mkdir()
         (snapshots / "abc123").mkdir()
-        assert model_manager.is_model_cached("small (500 MB)") is True
+        assert model_manager.is_model_cached("mlx-whisper small") is True
 
     def test_large_v3_cache_check(self, tmp_path, monkeypatch):
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        model_dir = tmp_path / "models--Systran--faster-whisper-large-v3"
+        model_dir = tmp_path / "models--mlx-community--whisper-large-v3-mlx"
         model_dir.mkdir()
         snapshots = model_dir / "snapshots"
         snapshots.mkdir()
         (snapshots / "def456").mkdir()
-        assert model_manager.is_model_cached("large-v3 (3 GB)") is True
+        assert model_manager.is_model_cached("mlx-whisper large-v3") is True
 
     def test_all_models_cached_check(self, tmp_path, monkeypatch):
         """Verify cache check works for every model label."""
         monkeypatch.setattr(model_manager, "HF_CACHE", str(tmp_path))
-        for label, model_id in model_manager.MODELS.items():
-            model_dir = tmp_path / f"models--Systran--faster-whisper-{model_id}"
+        for label, (backend, model_id) in model_manager.MODELS.items():
+            expected_dir = f"models--{model_id.replace('/', '--')}"
+            model_dir = tmp_path / expected_dir
             model_dir.mkdir(exist_ok=True)
             snapshots = model_dir / "snapshots"
             snapshots.mkdir(exist_ok=True)

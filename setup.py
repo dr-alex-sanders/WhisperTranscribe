@@ -1,5 +1,8 @@
 """py2app build config for WhisperTranscribe."""
 
+import sys
+sys.setrecursionlimit(5000)
+
 from setuptools import setup
 
 APP = ["app.py"]
@@ -7,15 +10,40 @@ DATA_FILES = []
 OPTIONS = {
     "iconfile": "icon.icns",
     "argv_emulation": False,
-    "packages": ["faster_whisper", "sounddevice", "ctranslate2", "mlx_whisper", "httpx", "numpy"],
+    "frameworks": [
+        "/Users/alexsanders/Documents/Vosk/.venv/lib/python3.14/site-packages/_sounddevice_data/portaudio-binaries/libportaudio.dylib",
+    ],
+    "packages": ["sounddevice", "_sounddevice_data", "mlx_whisper", "httpx", "numpy"],
     "includes": [
         "model_manager",
-        "deepgram_client",
-        "nvidia_client",
-        "aws_transcribe_client",
-        "openai_client",
-        "speechmatics_client",
-        "medasr_client",
+    ],
+    "excludes": [
+        "torch",
+        "transformers",
+        "boto3",
+        "botocore",
+        "resemblyzer",
+        "sklearn",
+        "scipy",
+        "pytest",
+        "pip",
+        "setuptools",
+        "onnxruntime",
+        "numba",
+        "llvmlite",
+        "sympy",
+        "pygments",
+        "PIL",
+        "Pillow",
+        "matplotlib",
+        "pandas",
+        "IPython",
+        "jupyter",
+        "notebook",
+        "jedi",
+        "parso",
+        "docutils",
+        "sphinx",
     ],
     "plist": {
         "CFBundleName": "WhisperTranscribe",

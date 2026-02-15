@@ -13,11 +13,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 @pytest.fixture
 def app():
     """Create the app with mocked audio devices."""
-    with patch("app.sd") as mock_sd, \
-         patch("app.WhisperModel"):
+    with patch("app.sd") as mock_sd:
         mock_sd.query_devices.return_value = [
-            {"name": "Test Mic", "max_input_channels": 1, "max_output_channels": 0},
-            {"name": "Test Speaker", "max_input_channels": 0, "max_output_channels": 2},
+            {"name": "Test Mic", "max_input_channels": 1, "max_output_channels": 0, "default_samplerate": 16000.0},
+            {"name": "Test Speaker", "max_input_channels": 0, "max_output_channels": 2, "default_samplerate": 16000.0},
         ]
         mock_sd.default.device = [0, 1]
         mock_sd.RawInputStream = MagicMock()
@@ -46,72 +45,68 @@ class TestWindowSetup:
 
 
 class TestModelDropdown:
-    def test_default_is_small(self, app):
-        assert app.size_var.get() == "small (500 MB)"
+    def test_default_is_mlx_small(self, app):
+        assert app.size_var.get() == "mlx-whisper small"
 
-    def test_dropdown_has_five_models(self, app):
+    def test_dropdown_has_seven_models(self, app):
         from model_manager import SIZES
-        assert len(SIZES) == 5
+        assert len(SIZES) == 7
 
-    def test_dropdown_labels_include_sizes(self, app):
+    def test_dropdown_labels_are_mlx(self, app):
         from model_manager import SIZES
         for label in SIZES:
-            assert "MB" in label or "GB" in label
+            assert label.startswith("mlx-whisper")
 
 
 class TestModelSwitching:
     """Test that changing model dropdown updates _loaded_key and triggers reload."""
 
     def test_switch_to_tiny(self, app):
-        app.size_var.set("tiny (75 MB)")
-        assert app.size_var.get() == "tiny (75 MB)"
-
-    def test_switch_to_base(self, app):
-        app.size_var.set("base (150 MB)")
-        assert app.size_var.get() == "base (150 MB)"
+        app.size_var.set("mlx-whisper tiny")
+        assert app.size_var.get() == "mlx-whisper tiny"
 
     def test_switch_to_medium(self, app):
-        app.size_var.set("medium (1.5 GB)")
-        assert app.size_var.get() == "medium (1.5 GB)"
+        app.size_var.set("mlx-whisper medium")
+        assert app.size_var.get() == "mlx-whisper medium"
 
     def test_switch_to_large(self, app):
-        app.size_var.set("large-v3 (3 GB)")
-        assert app.size_var.get() == "large-v3 (3 GB)"
+        app.size_var.set("mlx-whisper large-v3")
+        assert app.size_var.get() == "mlx-whisper large-v3"
 
     def test_switch_triggers_model_reload(self, app):
         """Switching model should require reload — _loaded_key won't match."""
         mock_model = MagicMock()
         with patch.object(app, "_begin_audio_capture"):
-            app._on_model_loaded("small (500 MB)", mock_model, None)
-        assert app._loaded_key == "small (500 MB)"
+            app._on_model_loaded("mlx-whisper small", "mlx", mock_model, None)
+        assert app._loaded_key == "mlx-whisper small"
 
         # Now switch to medium — key no longer matches
-        app.size_var.set("medium (1.5 GB)")
+        app.size_var.set("mlx-whisper medium")
         assert app._loaded_key != app.size_var.get()
 
     def test_same_model_no_reload(self, app):
         """Same model selected — should not need reload."""
         mock_model = MagicMock()
         with patch.object(app, "_begin_audio_capture"):
-            app._on_model_loaded("small (500 MB)", mock_model, None)
+            app._on_model_loaded("mlx-whisper small", "mlx", mock_model, None)
 
-        app.size_var.set("small (500 MB)")
+        app.size_var.set("mlx-whisper small")
         assert app._loaded_key == app.size_var.get()
 
     def test_model_load_passes_correct_id(self, app):
-        """Verify that _load_model_sync receives the label and resolves to model id."""
+        """Verify that get_model_info resolves label to (backend, model_id)."""
         import model_manager
-        label = "medium (1.5 GB)"
-        model_id = model_manager.get_model_path(label)
-        assert model_id == "medium"
+        label = "mlx-whisper medium"
+        backend, model_id = model_manager.get_model_info(label)
+        assert backend == "mlx"
+        assert model_id == "mlx-community/whisper-medium-mlx"
 
-    def test_all_models_resolve_to_valid_ids(self, app):
-        """Every dropdown label should map to a valid faster-whisper model id."""
+    def test_all_models_resolve_to_mlx(self, app):
+        """Every dropdown label should map to an MLX backend."""
         import model_manager
-        expected_ids = {"tiny", "base", "small", "medium", "large-v3"}
         for label in model_manager.SIZES:
-            model_id = model_manager.get_model_path(label)
-            assert model_id in expected_ids, f"{label} resolved to unexpected id: {model_id}"
+            backend, model_id = model_manager.get_model_info(label)
+            assert backend == "mlx", f"{label} resolved to unexpected backend: {backend}"
 
     def test_loaded_key_updates_on_each_switch(self, app):
         """Loading different models updates _loaded_key each time."""
@@ -119,7 +114,7 @@ class TestModelSwitching:
         mock_model = MagicMock()
         for label in model_manager.SIZES:
             with patch.object(app, "_begin_audio_capture"):
-                app._on_model_loaded(label, mock_model, None)
+                app._on_model_loaded(label, "mlx", mock_model, None)
             assert app._loaded_key == label
             assert app.model is mock_model
 
@@ -245,43 +240,43 @@ class TestModelLoading:
     def test_on_model_loaded_success(self, app):
         mock_model = MagicMock()
         with patch.object(app, "_begin_audio_capture"):
-            app._on_model_loaded("small (500 MB)", mock_model, None)
+            app._on_model_loaded("mlx-whisper small", "mlx", mock_model, None)
         assert app.model is mock_model
-        assert app._loaded_key == "small (500 MB)"
+        assert app._loaded_key == "mlx-whisper small"
 
     def test_on_model_loaded_error(self, app):
         with patch("app.messagebox") as mock_mb:
-            app._on_model_loaded("small (500 MB)", None, RuntimeError("test error"))
+            app._on_model_loaded("mlx-whisper small", None, None, RuntimeError("test error"))
         assert app.model is None
         assert str(app.status_label["text"]).startswith("Failed")
 
 
 class TestLevelMeter:
     def test_level_canvas_exists(self, app):
-        assert hasattr(app, "level_canvas")
+        assert hasattr(app, "level_canvas_0")
 
     def test_draw_level_no_crash(self, app):
-        app.mic_level = 0.0
+        app.mic_level = [0.0, 0.0]
         app._draw_level()
-        app.mic_level = 0.5
+        app.mic_level = [0.5, 0.5]
         app._draw_level()
-        app.mic_level = 1.0
+        app.mic_level = [1.0, 1.0]
         app._draw_level()
 
     def test_level_colors(self, app):
         app.root.update()
 
-        app.mic_level = 0.3
+        app.mic_level = [0.3, 0.3]
         app._draw_level()
-        color = app.level_canvas.itemcget(app.level_rect, "fill")
+        color = app.level_canvas_0.itemcget(app.level_rect_0, "fill")
         assert color == "#4CAF50"  # green
 
-        app.mic_level = 0.6
+        app.mic_level = [0.6, 0.6]
         app._draw_level()
-        color = app.level_canvas.itemcget(app.level_rect, "fill")
+        color = app.level_canvas_0.itemcget(app.level_rect_0, "fill")
         assert color == "#FFC107"  # yellow
 
-        app.mic_level = 0.9
+        app.mic_level = [0.9, 0.9]
         app._draw_level()
-        color = app.level_canvas.itemcget(app.level_rect, "fill")
+        color = app.level_canvas_0.itemcget(app.level_rect_0, "fill")
         assert color == "#F44336"  # red

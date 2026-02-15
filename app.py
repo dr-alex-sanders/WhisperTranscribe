@@ -18,12 +18,6 @@ import sounddevice as sd
 if not sys.stdout.line_buffering:
     sys.stdout.reconfigure(line_buffering=True)
 
-import aws_transcribe_client
-import deepgram_client
-import medasr_client
-import nvidia_client
-import openai_client
-import speechmatics_client
 import model_manager
 
 # Stub out numba & scipy before importing mlx_whisper — they deadlock on
@@ -185,7 +179,7 @@ class WhisperTranscribe:
         self.root.minsize(700, 450)
 
         self.model = None
-        self._backend = None  # "mlx" or "faster"
+        self._backend = None  # "mlx"
         self._transcribe_lock = threading.Lock()  # serialize GPU transcription
         self._speaker_tracker = None  # initialized when recording starts
         self.recording = False
@@ -585,12 +579,6 @@ class WhisperTranscribe:
     def _load_model_for_reprocess(self, size):
         self._poll_paused = True
         self._stop_monitor(wait=True)
-        backend, _ = model_manager.get_model_info(size)
-        if backend in ("deepgram", "nvidia", "aws-transcribe", "openai", "speechmatics"):
-            if not self._ensure_cloud_config(backend):
-                self._set_stopped_ui()
-                self._update_status(f"{size} credentials required")
-                return
         cached = model_manager.is_model_cached(size)
         if cached:
             self._update_status(f"Loading {size} model...")
@@ -601,24 +589,16 @@ class WhisperTranscribe:
     def _load_model_sync_reprocess(self, size):
         try:
             backend, model_id = model_manager.get_model_info(size)
-            if backend in ("deepgram", "nvidia", "aws-transcribe", "openai", "speechmatics"):
-                model = model_id
-            elif backend == "medasr":
-                model = medasr_client.MedASRModel(model_id)
-            elif backend == "mlx":
-                import mlx_whisper
-                dummy = np.zeros(SAMPLE_RATE, dtype=np.float32)
-                try:
-                    mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
-                except Exception as e:
-                    print(f"[model] mlx warmup failed ({e}), retrying...")
-                    import gc; gc.collect()
-                    time.sleep(1)
-                    mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
-                model = model_id
-            else:
-                from faster_whisper import WhisperModel
-                model = WhisperModel(model_id, device="auto", compute_type="int8")
+            import mlx_whisper
+            dummy = np.zeros(SAMPLE_RATE, dtype=np.float32)
+            try:
+                mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
+            except Exception as e:
+                print(f"[model] mlx warmup failed ({e}), retrying...")
+                import gc; gc.collect()
+                time.sleep(1)
+                mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
+            model = model_id
             self.root.after(0, self._on_model_loaded_reprocess, size, backend, model, None)
         except Exception as e:
             self.root.after(0, self._on_model_loaded_reprocess, size, None, None, e)
@@ -694,48 +674,16 @@ class WhisperTranscribe:
     def _transcribe_audio(self, audio_f32, lang, prompt):
         """Transcribe float32 audio, return list of (start, end, text) segments."""
         seg_list = []
-        if self._backend in ("deepgram", "nvidia", "aws-transcribe", "openai", "speechmatics"):
-            mono_data = (audio_f32 * 32768).astype(np.int16)
-            if self._backend == "deepgram":
-                text = deepgram_client.transcribe(mono_data.tobytes(), sample_rate=SAMPLE_RATE,
-                    language=lang if lang and lang != "auto" else "en", channels=1, model=self.model)
-            elif self._backend == "nvidia":
-                text = nvidia_client.transcribe(mono_data.tobytes(), sample_rate=SAMPLE_RATE,
-                    language=lang if lang and lang != "auto" else "en", channels=1, model=self.model)
-            elif self._backend == "aws-transcribe":
-                text = aws_transcribe_client.transcribe(mono_data.tobytes(), sample_rate=SAMPLE_RATE,
-                    language="en-US", channels=1)
-            elif self._backend == "openai":
-                text = openai_client.transcribe(mono_data.tobytes(), sample_rate=SAMPLE_RATE,
-                    language=lang if lang and lang != "auto" else "en", channels=1, model=self.model, prompt=prompt)
-            elif self._backend == "speechmatics":
-                text = speechmatics_client.transcribe(mono_data.tobytes(), sample_rate=SAMPLE_RATE,
-                    language=lang if lang and lang != "auto" else "en", channels=1)
-            seg_list.append((0.0, len(audio_f32) / SAMPLE_RATE, text))
-        elif self._backend == "medasr":
-            text = self.model.transcribe(audio_f32, sample_rate=SAMPLE_RATE)
-            seg_list.append((0.0, len(audio_f32) / SAMPLE_RATE, text))
-        elif self._backend == "mlx":
-            import mlx_whisper
-            kwargs = {"path_or_hf_repo": self.model, "condition_on_previous_text": False, "no_speech_threshold": 0.5}
-            if lang and lang != "auto":
-                kwargs["language"] = lang
-            if prompt:
-                kwargs["initial_prompt"] = prompt
-            result = mlx_whisper.transcribe(audio_f32, **kwargs)
-            for s in result.get("segments", []):
-                if s.get("no_speech_prob", 0) < 0.5 and s["text"].strip():
-                    seg_list.append((s["start"], s["end"], s["text"].strip()))
-        else:
-            kwargs = {"beam_size": 5, "vad_filter": True}
-            if lang and lang != "auto":
-                kwargs["language"] = lang
-            if prompt:
-                kwargs["initial_prompt"] = prompt
-            segments, info = self.model.transcribe(audio_f32, **kwargs)
-            for s in segments:
-                if s.text.strip():
-                    seg_list.append((s.start, s.end, s.text.strip()))
+        import mlx_whisper
+        kwargs = {"path_or_hf_repo": self.model, "condition_on_previous_text": False, "no_speech_threshold": 0.5}
+        if lang and lang != "auto":
+            kwargs["language"] = lang
+        if prompt:
+            kwargs["initial_prompt"] = prompt
+        result = mlx_whisper.transcribe(audio_f32, **kwargs)
+        for s in result.get("segments", []):
+            if s.get("no_speech_prob", 0) < 0.5 and s["text"].strip():
+                seg_list.append((s["start"], s["end"], s["text"].strip()))
         return seg_list
 
     def _reprocess_file(self, path):
@@ -1300,99 +1248,12 @@ class WhisperTranscribe:
         self.stop_btn.config(state=tk.DISABLED)
         self.reprocess_btn.config(state=tk.DISABLED)
 
-    def _ensure_cloud_config(self, backend: str) -> bool:
-        """Prompt for cloud API credentials if not configured. Returns True if ready."""
-        from tkinter import simpledialog
-
-        if backend == "deepgram":
-            if deepgram_client.get_api_key():
-                return True
-            key = simpledialog.askstring(
-                "Deepgram API Key",
-                "Enter your Deepgram API key:\n(saved to .env file)",
-                show="*", parent=self.root,
-            )
-            if key and key.strip():
-                deepgram_client.set_api_key(key.strip())
-                return True
-
-        elif backend == "nvidia":
-            if nvidia_client.get_api_key():
-                return True
-            key = simpledialog.askstring(
-                "NVIDIA API Key",
-                "Enter your NVIDIA NIM API key:\n(saved to .env file)",
-                show="*", parent=self.root,
-            )
-            if key and key.strip():
-                nvidia_client.set_api_key(key.strip())
-                return True
-
-        elif backend == "aws-transcribe":
-            if aws_transcribe_client.is_configured():
-                return True
-            access = simpledialog.askstring(
-                "AWS Config (1/4)", "AWS Access Key ID:", parent=self.root,
-            )
-            if not access:
-                return False
-            secret = simpledialog.askstring(
-                "AWS Config (2/4)", "AWS Secret Access Key:", show="*", parent=self.root,
-            )
-            if not secret:
-                return False
-            region = simpledialog.askstring(
-                "AWS Config (3/4)", "AWS Region (e.g. us-east-1):", parent=self.root,
-            )
-            if not region:
-                return False
-            bucket = simpledialog.askstring(
-                "AWS Config (4/4)", "S3 bucket name for temp audio:", parent=self.root,
-            )
-            if not bucket:
-                return False
-            aws_transcribe_client.set_config(
-                access.strip(), secret.strip(), region.strip(), bucket.strip(),
-            )
-            return True
-
-        elif backend == "openai":
-            if openai_client.get_api_key():
-                return True
-            key = simpledialog.askstring(
-                "OpenAI API Key",
-                "Enter your OpenAI API key:\n(saved to .env file)",
-                show="*", parent=self.root,
-            )
-            if key and key.strip():
-                openai_client.set_api_key(key.strip())
-                return True
-
-        elif backend == "speechmatics":
-            if speechmatics_client.get_api_key():
-                return True
-            key = simpledialog.askstring(
-                "Speechmatics API Key",
-                "Enter your Speechmatics API key:\n(saved to .env file)",
-                show="*", parent=self.root,
-            )
-            if key and key.strip():
-                speechmatics_client.set_api_key(key.strip())
-                return True
-
-        else:
-            return True  # local backends need no config
-
-        return False
-
     # --- Auto-preload ---
 
     def _auto_preload_model(self):
         """Pre-warm the default MLX model in background so Record starts instantly."""
         size = self.size_var.get()
         backend, model_id = model_manager.get_model_info(size)
-        if backend != "mlx":
-            return  # only preload local MLX models
         if self._loaded_key == size:
             return  # already loaded
         if not model_manager.is_model_cached(size):
@@ -1468,12 +1329,6 @@ class WhisperTranscribe:
 
     def _load_model(self, size: str):
         print(f"[model] _load_model called: {size!r}")
-        backend, _ = model_manager.get_model_info(size)
-        print(f"[model] backend={backend!r}")
-        if backend in ("deepgram", "nvidia", "aws-transcribe", "openai", "speechmatics"):
-            if not self._ensure_cloud_config(backend):
-                self._update_status(f"{size} credentials required")
-                return
         # Stop monitor stream AND device polling BEFORE loading model —
         # active PortAudio streams and system_profiler subprocess both
         # block MLX Metal GPU initialization (import mlx_whisper hangs)
@@ -1495,32 +1350,19 @@ class WhisperTranscribe:
             print(f"[model] getting model info...")
             backend, model_id = model_manager.get_model_info(size)
             print(f"[model] got info: backend={backend!r}, model_id={model_id!r}")
-            if backend in ("deepgram", "nvidia", "aws-transcribe", "openai", "speechmatics"):
-                model = model_id
-                print(f"[model] cloud API: {backend}/{model_id}")
-            elif backend == "medasr":
-                print(f"[model] loading MedASR ({model_id})...")
-                model = medasr_client.MedASRModel(model_id)
-                print(f"[model] MedASR ready on {model.device}")
-            elif backend == "mlx":
-                print(f"[model] importing mlx_whisper...")
-                import mlx_whisper
-                print(f"[model] mlx_whisper imported, warming up {model_id!r}...")
-                dummy = np.zeros(SAMPLE_RATE, dtype=np.float32)
-                try:
-                    mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
-                except Exception as e:
-                    print(f"[model] mlx warmup failed ({e}), retrying once...")
-                    import gc; gc.collect()
-                    time.sleep(1)
-                    mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
-                model = model_id
-                print(f"[model] mlx-whisper ready: {model_id}")
-            else:
-                from faster_whisper import WhisperModel
-                print(f"[model] loading WhisperModel({model_id!r}, device='auto', compute_type='int8')...")
-                model = WhisperModel(model_id, device="auto", compute_type="int8")
-                print(f"[model] faster-whisper loaded successfully")
+            print(f"[model] importing mlx_whisper...")
+            import mlx_whisper
+            print(f"[model] mlx_whisper imported, warming up {model_id!r}...")
+            dummy = np.zeros(SAMPLE_RATE, dtype=np.float32)
+            try:
+                mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
+            except Exception as e:
+                print(f"[model] mlx warmup failed ({e}), retrying once...")
+                import gc; gc.collect()
+                time.sleep(1)
+                mlx_whisper.transcribe(dummy, path_or_hf_repo=model_id)
+            model = model_id
+            print(f"[model] mlx-whisper ready: {model_id}")
             self.root.after(0, self._on_model_loaded, size, backend, model, None)
         except Exception as e:
             print(f"[model] ERROR: {e}")
@@ -1907,80 +1749,24 @@ class WhisperTranscribe:
             prompt = self.prompt_var.get().strip()
 
             with self._transcribe_lock:
-                if self._backend == "deepgram":
-                    text = deepgram_client.transcribe(
-                        audio_bytes,
-                        sample_rate=SAMPLE_RATE,
-                        language=lang if lang and lang != "auto" else "en",
-                        channels=1,
-                        model=self.model,
-                    )
-                elif self._backend == "nvidia":
-                    text = nvidia_client.transcribe(
-                        audio_bytes,
-                        sample_rate=SAMPLE_RATE,
-                        language=lang if lang and lang != "auto" else "en",
-                        channels=1,
-                        model=self.model,
-                    )
-                elif self._backend == "aws-transcribe":
-                    text = aws_transcribe_client.transcribe(
-                        audio_bytes,
-                        sample_rate=SAMPLE_RATE,
-                        language="en-US",
-                        channels=1,
-                    )
-                elif self._backend == "openai":
-                    text = openai_client.transcribe(
-                        audio_bytes,
-                        sample_rate=SAMPLE_RATE,
-                        language=lang if lang and lang != "auto" else "en",
-                        channels=1,
-                        model=self.model,
-                        prompt=prompt,
-                    )
-                elif self._backend == "speechmatics":
-                    text = speechmatics_client.transcribe(
-                        audio_bytes,
-                        sample_rate=SAMPLE_RATE,
-                        language=lang if lang and lang != "auto" else "en",
-                        channels=1,
-                    )
-                elif self._backend == "medasr":
-                    text = self.model.transcribe(audio_float32, sample_rate=SAMPLE_RATE)
-                elif self._backend == "mlx":
-                    import mlx_whisper
-                    # Pass float32 numpy array directly (avoids ffmpeg dependency)
-                    kwargs = {
-                        "path_or_hf_repo": self.model,
-                        "condition_on_previous_text": False,
-                        "no_speech_threshold": 0.5,
-                        "compression_ratio_threshold": 1.8,
-                    }
-                    if lang and lang != "auto":
-                        kwargs["language"] = lang
-                    if prompt:
-                        kwargs["initial_prompt"] = prompt
-                    result = mlx_whisper.transcribe(audio_float32, **kwargs)
-                    # Filter out segments with high no_speech_prob
-                    segments = result.get("segments", [])
-                    text_parts = []
-                    for seg in segments:
-                        if seg.get("no_speech_prob", 0) < 0.5:
-                            text_parts.append(seg["text"].strip())
-                    text = " ".join(text_parts).strip()
-                else:
-                    # faster-whisper path
-                    kwargs = {"beam_size": 5 if commit else 1, "vad_filter": True}
-                    if lang and lang != "auto":
-                        kwargs["language"] = lang
-                    if prompt:
-                        kwargs["initial_prompt"] = prompt
-                    segments, info = self.model.transcribe(audio_float32, **kwargs)
-                    text_parts = []
-                    for segment in segments:
-                        text_parts.append(segment.text.strip())
-                    text = " ".join(text_parts).strip()
+                import mlx_whisper
+                kwargs = {
+                    "path_or_hf_repo": self.model,
+                    "condition_on_previous_text": False,
+                    "no_speech_threshold": 0.5,
+                    "compression_ratio_threshold": 1.8,
+                }
+                if lang and lang != "auto":
+                    kwargs["language"] = lang
+                if prompt:
+                    kwargs["initial_prompt"] = prompt
+                result = mlx_whisper.transcribe(audio_float32, **kwargs)
+                segments = result.get("segments", [])
+                text_parts = []
+                for seg in segments:
+                    if seg.get("no_speech_prob", 0) < 0.5:
+                        text_parts.append(seg["text"].strip())
+                text = " ".join(text_parts).strip()
 
             elapsed = _time.time() - t0
             print(f"[transcribe] {text!r} ({elapsed:.1f}s)")
